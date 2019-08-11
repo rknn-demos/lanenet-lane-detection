@@ -17,6 +17,7 @@ import glog as log
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.platform import gfile
 
 from config import global_config
 from lanenet_model import lanenet
@@ -33,6 +34,7 @@ def init_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--image_path', type=str, help='The image path or the src image save dir')
     parser.add_argument('--weights_path', type=str, help='The model weights path')
+    parser.add_argument('--pb_path', type=str, help='The model pb file')
 
     return parser.parse_args()
 
@@ -66,7 +68,7 @@ def minmax_scale(input_arr):
     return output_arr
 
 
-def test_lanenet(image_path, weights_path):
+def test_lanenet(image_path, weights_path, pb_path):
     """
 
     :param image_path:
@@ -83,14 +85,7 @@ def test_lanenet(image_path, weights_path):
     image = image / 127.5 - 1.0
     log.info('Image load complete, cost time: {:.5f}s'.format(time.time() - t_start))
 
-    input_tensor = tf.placeholder(dtype=tf.float32, shape=[1, 256, 512, 3], name='input_tensor')
-
-    net = lanenet.LaneNet(phase='test', net_flag='vgg')
-    binary_seg_ret, instance_seg_ret = net.inference(input_tensor=input_tensor, name='lanenet_model')
-
     postprocessor = lanenet_postprocess.LaneNetPostProcessor()
-
-    saver = tf.train.Saver()
 
     # Set sess configuration
     sess_config = tf.ConfigProto()
@@ -100,8 +95,31 @@ def test_lanenet(image_path, weights_path):
 
     sess = tf.Session(config=sess_config)
 
-    with sess.as_default():
+    if pb_path is not None:
+        assert ops.exists(pb_path), '{:s} not exist'.format(pb_path)
+        print('Start running with pb file ...')
+        model_f = gfile.FastGFile(pb_path, 'rb')
+        graph_def = tf.GraphDef()
+        graph_def.ParseFromString(model_f.read())
+        sess.graph.as_default()
+        tf.import_graph_def(graph_def, name='')
+        input_img = sess.graph.get_tensor_by_name("input_tensor:0")
+        print(input_img)
+        out_binary = sess.graph.get_tensor_by_name("lanenet_model/vgg_backend/binary_seg/ArgMax:0")
+        print(out_binary)
+        out_seg = sess.graph.get_tensor_by_name("lanenet_model/vgg_backend/instance_seg/pix_embedding_conv/pix_embedding_conv:0")
+        print(out_seg)
+        t_start = time.time()
+        binary_seg_image, instance_seg_image = sess.run((out_binary, out_seg), feed_dict={input_img: [image]})
+        t_cost = time.time() - t_start
+    else:
+        print('Start running with ckpt ...')
+        input_tensor = tf.placeholder(dtype=tf.float32, shape=[1, 256, 512, 3], name='input_tensor')
+        net = lanenet.LaneNet(phase='test', net_flag='vgg')
+        binary_seg_ret, instance_seg_ret = net.inference(input_tensor=input_tensor, name='lanenet_model')
 
+        sess.as_default()
+        saver = tf.train.Saver()
         saver.restore(sess=sess, save_path=weights_path)
 
         t_start = time.time()
@@ -112,30 +130,30 @@ def test_lanenet(image_path, weights_path):
         t_cost = time.time() - t_start
         log.info('Single imgae inference cost time: {:.5f}s'.format(t_cost))
 
-        postprocess_result = postprocessor.postprocess(
-            binary_seg_result=binary_seg_image[0],
-            instance_seg_result=instance_seg_image[0],
-            source_image=image_vis
-        )
-        mask_image = postprocess_result['mask_image']
+    postprocess_result = postprocessor.postprocess(
+        binary_seg_result=binary_seg_image[0],
+        instance_seg_result=instance_seg_image[0],
+        source_image=image_vis
+    )
+    mask_image = postprocess_result['mask_image']
 
-        for i in range(CFG.TRAIN.EMBEDDING_FEATS_DIMS):
-            instance_seg_image[0][:, :, i] = minmax_scale(instance_seg_image[0][:, :, i])
-        embedding_image = np.array(instance_seg_image[0], np.uint8)
+    for i in range(CFG.TRAIN.EMBEDDING_FEATS_DIMS):
+        instance_seg_image[0][:, :, i] = minmax_scale(instance_seg_image[0][:, :, i])
+    embedding_image = np.array(instance_seg_image[0], np.uint8)
 
-        plt.figure('mask_image')
-        plt.imshow(mask_image[:, :, (2, 1, 0)])
-        plt.figure('src_image')
-        plt.imshow(image_vis[:, :, (2, 1, 0)])
-        plt.figure('instance_image')
-        plt.imshow(embedding_image[:, :, (2, 1, 0)])
-        plt.figure('binary_image')
-        plt.imshow(binary_seg_image[0] * 255, cmap='gray')
-        plt.show()
+    plt.figure('mask_image')
+    plt.imshow(mask_image[:, :, (2, 1, 0)])
+    plt.figure('src_image')
+    plt.imshow(image_vis[:, :, (2, 1, 0)])
+    plt.figure('instance_image')
+    plt.imshow(embedding_image[:, :, (2, 1, 0)])
+    plt.figure('binary_image')
+    plt.imshow(binary_seg_image[0] * 255, cmap='gray')
+    plt.show()
 
-        cv2.imwrite('instance_mask_image.png', mask_image)
-        cv2.imwrite('source_image.png', postprocess_result['source_image'])
-        cv2.imwrite('binary_mask_image.png', binary_seg_image[0] * 255)
+    cv2.imwrite('instance_mask_image.png', mask_image)
+    cv2.imwrite('source_image.png', postprocess_result['source_image'])
+    cv2.imwrite('binary_mask_image.png', binary_seg_image[0] * 255)
 
     sess.close()
 
@@ -148,5 +166,4 @@ if __name__ == '__main__':
     """
     # init args
     args = init_args()
-
-    test_lanenet(args.image_path, args.weights_path)
+    test_lanenet(args.image_path, args.weights_path, args.pb_path)
