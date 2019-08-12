@@ -1,6 +1,7 @@
 .idea/
 config/
 __pycache__/
+model/
 *.png
 *.rknn
 *.pb
