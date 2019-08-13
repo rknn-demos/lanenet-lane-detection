@@ -15,7 +15,8 @@ def to_rknn(pb_path, rknn_path):
     rknn.load_tensorflow(tf_pb=pb_path,
                          inputs=['input_tensor'],
                          outputs=[
-                             'lanenet_model/vgg_backend/binary_seg/ArgMax',
+                             #'lanenet_model/vgg_backend/binary_seg/ArgMax',
+                             'lanenet_model/vgg_frontend/vgg16_decode_module/binary_seg_decode/binary_final_logits/binary_final_logits',  # Workaround RKNN 1.1.0 bug
                              #'lanenet_model/vgg_backend/binary_seg/Softmax',
                              'lanenet_model/vgg_backend/instance_seg/pix_embedding_conv/pix_embedding_conv'],
                          input_size_list=[[256, 512, 3]])

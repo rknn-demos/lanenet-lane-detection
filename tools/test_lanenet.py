@@ -106,7 +106,6 @@ def test_lanenet(image_path, weights_path, pb_path):
         input_img = sess.graph.get_tensor_by_name("input_tensor:0")
         print(input_img)
         out_binary = sess.graph.get_tensor_by_name("lanenet_model/vgg_backend/binary_seg/ArgMax:0")
-        #out_binary = sess.graph.get_tensor_by_name("lanenet_model/vgg_backend/binary_seg/Softmax:0")
         print(out_binary)
         out_seg = sess.graph.get_tensor_by_name("lanenet_model/vgg_backend/instance_seg/pix_embedding_conv/pix_embedding_conv:0")
         print(out_seg)
@@ -115,10 +114,10 @@ def test_lanenet(image_path, weights_path, pb_path):
         t_cost = time.time() - t_start
         log.info('Single imgae inference cost time: {:.5f}s'.format(t_cost))
 
-        print("Binary :" + str(binary_seg_image.shape))
-        print(binary_seg_image)
-        print("Instance :" + str(instance_seg_image.shape))
-        print(instance_seg_image)
+        # print("Binary :" + str(binary_seg_image.shape))
+        # print(binary_seg_image)
+        # print("Instance :" + str(instance_seg_image.shape))
+        # print(instance_seg_image)
         print('done')
     else:
         print('Start running with ckpt ...')

@@ -56,14 +56,14 @@ def run_test(rknn, image_path):
     postprocessor = lanenet_postprocess.LaneNetPostProcessor()
 
     print('starting inference ...')
-    instance_seg_image, binary_seg_image = rknn.inference(inputs=[image])
-    binary_seg_image = binary_seg_image.reshape(1, 256, 512)
+    binary_seg_image, instance_seg_image = rknn.inference(inputs=[image])
+    binary_seg_image = binary_seg_image.reshape(1, 256, 512, 2)
     instance_seg_image = instance_seg_image.reshape(1, 256, 512, 4)
-
-    print("Binary :" + str(binary_seg_image.shape))
-    print(binary_seg_image)
-    print("Instance :" + str(instance_seg_image.shape))
-    print(instance_seg_image)
+    binary_seg_image = np.argmax(binary_seg_image, axis=-1)  # Workaround RKNN 1.1.0 bug
+    # print("Binary :" + str(binary_seg_image.shape))
+    # print(binary_seg_image)
+    # print("Instance :" + str(instance_seg_image.shape))
+    # print(instance_seg_image)
     print('done')
 
     postprocess_result = postprocessor.postprocess(
