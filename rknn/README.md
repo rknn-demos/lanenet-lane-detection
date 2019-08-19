@@ -7,7 +7,7 @@
 |____| |___||____||____||_____|\____||_____|\____|     
 ```
 ## Usage
-1. Please download pre-trained model following README.md of root path
+1. Please download pre-trained model following README.md in root path
 2. Freeze model to pb file using 
 ```
 rknn/save_pb.py
